@@ -35,6 +35,7 @@ module mcp4725(
   input clk_2x400kHz,
   input clk_2x1_7MHz,
   input clk_2x3_4MHz);
+
   localparam ADDRESSI2Cmid = 4'b0001;
   //I2C states
   localparam I2CREADY = 3'b000,
@@ -83,6 +84,9 @@ module mcp4725(
   assign i2cFinished = i2cinSTOP & SCL;
   assign i2cinACK = i2cinREADACK | i2cinWRITEACK;
 
+  //Get i2c address
+  assign devAddres = {{2{~i2cSpeed[1]}},ADDRESSI2Cmid, A0, readNwrite};
+
   assign SCL = (i2cinREADY) ? 1'b1 : i2c_clk;
 
   //Handle i2c_double_clk
@@ -109,8 +113,7 @@ module mcp4725(
               i2c_double_clk = clk_2x3_4MHz;
             end
         endcase
-    end
-  
+    end 
 
   //I2C state transactions
   always@(negedge i2c_double_clk or posedge rst)
@@ -201,14 +204,38 @@ module mcp4725(
       endcase
       
     end
-  
+
+  //I2C bit counter
+  assign i2cBitCounterDONE = ~|i2cBitCounter;
+  always@(posedge SCL) 
+    begin
+      case(i2cState)
+        I2CADDRS:
+          begin
+            i2cBitCounter <= i2cBitCounter + 3'd1;
+          end
+        I2CWRITE:
+          begin
+            i2cBitCounter <= i2cBitCounter + 3'd1;
+          end
+        I2CREAD:
+          begin
+            i2cBitCounter <= i2cBitCounter + 3'd1;
+          end
+        default:
+          begin
+            i2cBitCounter <= 3'd0;
+          end
+      endcase
+    end
+
   //SDA_i handle
   always@*
     begin
       case(i2cByteCounter)
         3'd0:
           begin
-            SDA_i_source = {devAddres, readNwrite};
+            SDA_i_source = devAddres;
           end
         3'd1:
           case(state)
@@ -257,42 +284,18 @@ module mcp4725(
     end
   always@(negedge i2c_double_clk)
     begin
-      if(SDA_Update_State & ~SCL)
+      if(SDA_Update_State)
         SDA_i_buff <= SDA_i_source;
-      else if(SDA_Shift_State & ~SCL)
+      else if(SDA_Shift_State & ~SCL & |i2cBitCounter)
         SDA_i_buff <= {SDA_i_buff << 1};
     end
     assign SDA_Update_State = i2cinSTART | i2cinWRITEACK;
     assign SDA_Shift_State = i2cinADDRS | i2cinWRITE;
 
   //SDA_o handle
-  always@(posedge i2c_double_clk)
+  always@(posedge SCL)
     begin
-      SDA_o_buff <= (SCL & i2cinREAD) ? {SDA_o_buff[7:0], SDA} : SDA_o_buff;
-    end
-  
-  //I2C bit counter
-  assign i2cBitCounterDONE = ~|i2cBitCounter;
-  always@(negedge i2c_clk) 
-    begin
-      case(i2cState)
-        I2CADDRS:
-          begin
-            i2cBitCounter <= i2cBitCounter + 3'd1;
-          end
-        I2CWRITE:
-          begin
-            i2cBitCounter <= i2cBitCounter + 3'd1;
-          end
-        I2CREAD:
-          begin
-            i2cBitCounter <= i2cBitCounter + 3'd1;
-          end
-        default:
-          begin
-            i2cBitCounter <= 3'd0;
-          end
-      endcase
+      SDA_o_buff <= (i2cinREAD) ? {SDA_o_buff[7:0], SDA} : SDA_o_buff;
     end
 
   //Decode states
@@ -348,12 +351,12 @@ module mcp4725(
           else if(inREADMEM & i2cinREADACK)
             begin //reading from mem
               case(i2cByteCounter)
-                3'd4:
+                3'd5:
                   begin
                     mode_reg <= SDA_o_buff[6:5];
-                    data_reg[11:8] <= SDA_o_buff[6:5];
+                    data_reg[11:8] <= SDA_o_buff[3:0];
                   end
-                3'd5:
+                3'd6:
                   begin
                     data_reg[7:0] <= SDA_o_buff;
                   end
@@ -362,9 +365,6 @@ module mcp4725(
             end
         end
     end
-
-  //Get i2c address
-  assign devAddres = {{2{~i2cSpeed[1]}},ADDRESSI2Cmid, A0, readNwrite};
 
   //Data update condition
   assign dataUpdate = enable & ((data_i != data_reg) | (mode_i != mode_reg));
@@ -388,10 +388,10 @@ module clkGen100MHz_6_25MHz(
   input clk100MHz,
   input rst,
   output reg clk6_25MHz);
-  reg [1:0] counter;
+  reg [2:0] counter;
   wire counterDone;
 
-  assign counterDone = (counter == 3'd7);
+  assign counterDone = &counter;
   always@(posedge clk100MHz or posedge rst)
     begin
       if(rst)
