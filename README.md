@@ -76,4 +76,4 @@ For testing [Adafruit MCP4725 Breakout Board](https://learn.adafruit.com/mcp4725
 
 ## Issues
 
-- High speed mode is not working (Might be solved via reducing pullup resistors, tested breakout board has 10kΩ pullup resistors)
+- High speed mode implementation is not correct, will be corrected later.
