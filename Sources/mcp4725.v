@@ -202,7 +202,6 @@ module mcp4725(
             i2cByteCounterDONE = 1;
           end
       endcase
-      
     end
 
   //I2C bit counter
