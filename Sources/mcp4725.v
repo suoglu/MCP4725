@@ -1,5 +1,5 @@
 /* ------------------------------------------------ *
- * Title       : MCP4725 DAC Interface v1           *
+ * Title       : MCP4725 DAC Interface v1.1         *
  * Project     : MCP4725 DAC Interface              *
  * ------------------------------------------------ *
  * File        : mcp4725.v                          *
@@ -10,14 +10,17 @@
  * ------------------------------------------------ *
  * Revisions                                        *
  *     v1      : Inital version                     *
+ *     v1.1    : Multi master support               *
  * ------------------------------------------------ */
 
 module mcp4725(
   input clk,
   input rst,
   //I2C interface
-  output SCL,
-  input SDA_i,
+  input  SCL_i,
+  output SCL_o,
+  output SCL_t,
+  input  SDA_i,
   output SDA_o,
   output SDA_t,
   //Data interface
@@ -61,7 +64,25 @@ module mcp4725(
 
   wire i2c_double_clk_posedge =  i2c_double_clk & ~i2c_double_clk_d;
   wire i2c_double_clk_negedge = ~i2c_double_clk &  i2c_double_clk_d;
-  wire SCL_posedge =  SCL & ~SCL_d;
+  
+  //Listen I2C Bus & cond. gen.
+  wire    SCL_posedge  =  SCL & ~SCL_d;
+  wire    SDA_negedge  = ~SDA &  SDA_d;
+  wire    SDA_posedge  =  SDA & ~SDA_d;
+  wire  stopCondition  =  SCL & SDA_posedge;
+  wire startCondition  =  SCL & SDA_negedge;
+
+  reg i2cBusy;
+  
+  //Determine if an other master is using the bus
+  always@(posedge clk or posedge rst) begin
+    if(rst) begin
+      i2cBusy <= 1'b0;
+    end else case(i2cBusy)
+      1'b0: i2cBusy <= startCondition & inReady;
+      1'b1: i2cBusy <= ~stopCondition & inReady;
+    endcase
+  end
 
   //Counters
   reg [2:0] i2cBitCounter;
@@ -101,7 +122,11 @@ module mcp4725(
   //Data update condition
   wire dataUpdate = enable & ((data_i != data_reg) | (mode_i != mode_reg));
 
-  assign SCL = (i2cinREADY) ? 1'b1 : i2c_clk;
+  //I2C Clock Pin
+  wire   SCL_claim = ~i2cinREADY;
+  assign SCL_t     = ~SCL_claim;
+  wire   SCL       = (SCL_claim) ? i2c_clk : SCL_i;
+  assign SCL_o     =  SCL;
 
   //Handle i2c_double_clk
   always@* begin
@@ -121,7 +146,7 @@ module mcp4725(
       i2cState <= I2CREADY;
     end else if (i2c_double_clk_negedge)
       case(i2cState)
-        I2CREADY     : i2cState <= (~inIDLE & i2c_clk) ? I2CSTART : i2cState;
+        I2CREADY     : i2cState <= (~inIDLE & i2c_clk & ~i2cBusy) ? I2CSTART : i2cState;
         I2CSTART     : i2cState <= (~SCL) ? I2CADDRS : i2cState;
         I2CADDRS     : i2cState <= (~SCL & i2cBitCounterDONE) ? I2CWRITE_ACK : i2cState;
         I2CWRITE_ACK : i2cState <= (~SCL) ? ((~SDA_d & ~i2cByteCounterDONE) ? ((~readNwrite) ? I2CWRITE : I2CREAD): I2CSTOP) : i2cState;
