@@ -30,7 +30,7 @@ Module `mcp4725` provides a simple interface for the [MCP4725](https://ww1.micro
 | `clk` | I | 1 | System Clock |
 | `rst` | I | 1 | System Reset |
 | `SCL` | O | 1 | I²C serial Clock |
-| `SDA` | IO | 1 | I²C data line |
+| `SDA`* | IO | 1 | I²C data line |
 | `data_i` | I | 12 | DAC voltage value input |
 | `data_reg` | O | 12 | Current DAC voltage value |
 | `enable` | I | 1 | Update output value |
@@ -46,6 +46,8 @@ Module `mcp4725` provides a simple interface for the [MCP4725](https://ww1.micro
 | `clk_2x3_4MHz` | I | 1 | 6,8MHz Clock |
 
 I: Input  O: Output
+
+\* Contains pins \_i, \_o and \_t.
 
 **Note:** Unused clock ports (`clk_2x100kHz`, `clk_2x400kHz`, `clk_2x1_7MHz`, `clk_2x3_4MHz`) can be left unconnected.
 

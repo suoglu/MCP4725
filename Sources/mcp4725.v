@@ -17,7 +17,9 @@ module mcp4725(
   input rst,
   //I2C interface
   output SCL,
-  inout SDA,
+  input SDA_i,
+  output SDA_o,
+  output SDA_t,
   //Data interface
   input [11:0] data_i,
   output reg [11:0] data_reg,
@@ -131,7 +133,9 @@ module mcp4725(
   end
 
   //I2C data line handling
-  assign SDA = (SDA_Claim) ? SDA_Write : 1'bZ;
+  assign SDA = (SDA_Claim) ? SDA_Write : SDA_i;
+  assign SDA_o = SDA;
+  assign SDA_t = ~SDA_Claim;
   assign SDA_Claim = i2cinSTART | i2cinADDRS | i2cinWRITE | i2cinREADACK | i2cinSTOP;
   assign SDA_Write = (i2cinSTART | i2cinREADACK | i2cinSTOP) ? 1'd0 : SDA_i_buff[7];
 
