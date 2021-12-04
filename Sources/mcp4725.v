@@ -52,6 +52,19 @@ module mcp4725(
           I2CREAD_ACK = 3'b101,
               I2CSTOP = 3'b100;
   reg [2:0] i2cState;
+
+  //Decode I2C states
+  wire i2cinREADY = (i2cState == I2CREADY);
+  wire i2cinSTART = (i2cState == I2CSTART);
+  wire i2cinADDRS = (i2cState == I2CADDRS);
+  wire i2cinWRITE = (i2cState == I2CWRITE);
+  wire i2cinWRITEACK = (i2cState == I2CWRITE_ACK);
+  wire i2cinREAD = (i2cState == I2CREAD);
+  wire i2cinREADACK = (i2cState == I2CREAD_ACK);
+  wire i2cinSTOP = (i2cState == I2CSTOP);
+  wire i2cFinished = i2cinSTOP & SCL;
+  wire i2cinACK = i2cinREADACK | i2cinWRITEACK;
+  
   //I2C internal signals
   reg [7:0] SDA_i_buff, SDA_o_buff, SDA_i_source;
   reg i2c_double_clk; //Used to shifting and sampling
@@ -64,6 +77,19 @@ module mcp4725(
 
   wire i2c_double_clk_posedge =  i2c_double_clk & ~i2c_double_clk_d;
   wire i2c_double_clk_negedge = ~i2c_double_clk &  i2c_double_clk_d;
+
+  //I2C Clock Pin
+  wire   SCL_claim = ~i2cinREADY;
+  assign SCL_t     = ~SCL_claim;
+  wire   SCL       = (SCL_claim) ? i2c_clk : SCL_i;
+  assign SCL_o     =  SCL;
+
+  //I2C data line handling
+  wire   SDA = (SDA_Claim) ? SDA_Write : SDA_i;
+  assign SDA_o = SDA;
+  assign SDA_t = ~SDA_Claim;
+  assign SDA_Claim = i2cinSTART | i2cinADDRS | i2cinWRITE | i2cinREADACK | i2cinSTOP;
+  assign SDA_Write = (i2cinSTART | i2cinREADACK | i2cinSTOP) ? 1'd0 : SDA_i_buff[7];
   
   //Listen I2C Bus & cond. gen.
   wire    SCL_posedge  =  SCL & ~SCL_d;
@@ -96,18 +122,6 @@ module mcp4725(
              READMEM = 2'b10;
   reg [1:0] state;
 
-  //Decode I2C states
-  wire i2cinREADY = (i2cState == I2CREADY);
-  wire i2cinSTART = (i2cState == I2CSTART);
-  wire i2cinADDRS = (i2cState == I2CADDRS);
-  wire i2cinWRITE = (i2cState == I2CWRITE);
-  wire i2cinWRITEACK = (i2cState == I2CWRITE_ACK);
-  wire i2cinREAD = (i2cState == I2CREAD);
-  wire i2cinREADACK = (i2cState == I2CREAD_ACK);
-  wire i2cinSTOP = (i2cState == I2CSTOP);
-  wire i2cFinished = i2cinSTOP & SCL;
-  wire i2cinACK = i2cinREADACK | i2cinWRITEACK;
-
   //Decode states
   wire inIDLE = (state == IDLE);
   wire inUPDATE = (state == UPDATE);
@@ -121,12 +135,6 @@ module mcp4725(
 
   //Data update condition
   wire dataUpdate = enable & ((data_i != data_reg) | (mode_i != mode_reg));
-
-  //I2C Clock Pin
-  wire   SCL_claim = ~i2cinREADY;
-  assign SCL_t     = ~SCL_claim;
-  wire   SCL       = (SCL_claim) ? i2c_clk : SCL_i;
-  assign SCL_o     =  SCL;
 
   //Handle i2c_double_clk
   always@* begin
@@ -156,13 +164,6 @@ module mcp4725(
         I2CSTOP      : i2cState <= (SCL) ? I2CREADY : i2cState;
       endcase
   end
-
-  //I2C data line handling
-  assign SDA = (SDA_Claim) ? SDA_Write : SDA_i;
-  assign SDA_o = SDA;
-  assign SDA_t = ~SDA_Claim;
-  assign SDA_Claim = i2cinSTART | i2cinADDRS | i2cinWRITE | i2cinREADACK | i2cinSTOP;
-  assign SDA_Write = (i2cinSTART | i2cinREADACK | i2cinSTOP) ? 1'd0 : SDA_i_buff[7];
 
   //Delays
   always@(posedge clk)  begin
