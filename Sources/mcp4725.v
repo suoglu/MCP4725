@@ -5,6 +5,7 @@
  * File        : mcp4725.v                          *
  * Author      : Yigit Suoglu                       *
  * Last Edit   : 04/12/2021                         *
+ * Licence     : CERN-OHL-W                         *
  * ------------------------------------------------ *
  * Description : Interface module for MCP4725 DAC   *
  * ------------------------------------------------ *

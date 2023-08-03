@@ -9,6 +9,7 @@
 5. Test
 6. Status Information
 7. Issues
+8. Licence
 
 [![Repo on GitLab](https://img.shields.io/badge/repo-GitLab-6C488A.svg)](https://gitlab.com/suoglu/MCP4725)
 [![Repo on GitHub](https://img.shields.io/badge/repo-GitHub-3D76C2.svg)](https://github.com/suoglu/MCP4725)
@@ -79,3 +80,8 @@ For testing [Adafruit MCP4725 Breakout Board](https://learn.adafruit.com/mcp4725
 ## Issues
 
 - High speed mode implementation is not correct, will be corrected later.
+
+## License
+
+CERN Open Hardware Licence Version 2 - Weakly Reciprocal
+
